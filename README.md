@@ -1,47 +1,44 @@
 # instar-skill-personality
 
-Personality engine for Project Instar. Stores and retrieves structured personality traits that bots query at runtime based on conversation context.
+Personality traits skill for [Project Instar](https://github.com/thegman54/project-instar). Provides structured, categorized personality traits with weights, decay, and an admin panel for management.
 
 ## What It Does
 
-Instead of dumping a text blob into the bot's system prompt, this skill stores personality as **atomic, categorized, weighted traits** that the bot retrieves per-conversation. The bot gets a minimal slice of relevant traits — not the entire personality — keeping token usage low and responses contextually appropriate.
+Stores personality traits (short categorical entries) that shape HOW the bot communicates — tone, phrasing, boundaries, identity. Traits are grouped into categories, weighted, and optionally time-decaying.
+
+## Install
+
+Zip and upload via the Instar admin UI, or copy into `tool-executor/src/tools/personality/`.
+
+```bash
+zip -r instar-skill-personality.zip . -x '.git/*' 'README.md'
+# Upload via POST /skills/upload or the admin Skills page
+```
+
+## Usage
+
+1. Set a profile's **Personality** field to `skill:personality`
+2. Open the **Traits** admin panel on the profile card
+3. Add traits by category with optional tags, weights, and stability flags
+4. Launch the profile — traits are queried at runtime and injected into conversation context
 
 ## Categories
 
 | Category | Purpose |
 |----------|---------|
-| `identity` | Core values and principles (stable) |
-| `tone` | Communication style preferences |
-| `stance` | Problem-solving approaches |
-| `boundary` | Things the bot avoids |
-| `phrase` | Vocabulary and expressions |
-| `situational` | Context-dependent behaviors |
+| identity | Who the bot is — name, role, origin |
+| tone | How it speaks — formal, casual, dry wit |
+| stance | Positions and preferences |
+| boundary | What it won't do |
+| phrase | Signature phrases and speech patterns |
+| situational | Context-dependent behaviors |
 
-## Tools
+## Trait Properties
 
-- **`personality_read`** — Returns relevant trait slice for a given situation. Bot calls this once per conversation.
-- **`personality_list`** — Lists available categories and trait counts.
+- **weight** (0.0-1.0) — higher weight = more influence
+- **stable** — if true, never decays; if false, effective weight decreases over time
+- **tags** — keywords for situational retrieval
 
-## Install
+## License
 
-Upload as a skill zip through the Instar admin Tools page, or use Browse GitHub to find and install directly.
-
-## Setup
-
-1. Install the skill (creates `personality_traits` table)
-2. Add traits via admin UI or import from `data/example_traits.yaml`
-3. Set a profile's personality field to `skill:personality`
-4. Launch the profile — bot will call `personality_read` at conversation start
-
-## Trait Structure
-
-Each trait has:
-- **category** — one of the 6 categories above
-- **content** — the actual trait text (one idea per trait)
-- **tags** — context keywords for retrieval (e.g. `["debugging", "technical"]`)
-- **weight** — base importance (0.0 - 1.0)
-- **stable** — if true, always included regardless of context (never decays)
-
-## Decay
-
-Non-stable traits lose ~5% of effective weight per day since last update. Core identity traits (`stable = true`) never decay. This allows personality to evolve naturally — recent traits matter more, old ones fade unless reinforced.
+MIT

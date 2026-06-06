@@ -1,10 +1,11 @@
 name: personality
-display_name: Personality Engine
-description: Dynamic personality trait storage and retrieval for bot profiles
+display_name: Personality
+description: Structured personality traits with categories, weights, and decay
 category: Core
-icon: user
+icon: sparkles
 color: purple
-version: 1.0.0
+version: 0.1.0
 database: true
 
-credentials: []
+admin_panel: admin.html
+admin_label: Traits

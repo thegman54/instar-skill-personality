@@ -1,0 +1,218 @@
+<!--
+  Personality Traits Admin Panel
+  Self-contained Alpine.js component. Loaded into a modal by the profiles page.
+  Expects: container div has data-slug attribute set to the profile slug.
+  Calls: /api/personality/{slug}/traits (GET, POST, DELETE), /api/personality/{slug}/import (POST)
+-->
+<div x-data="personalityAdmin()" x-init="init()" class="flex flex-col h-full">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-semibold text-white">Personality Traits</h3>
+            <span class="text-xs font-mono text-gray-400" x-text="slug"></span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button @click="showImport = !showImport"
+                class="px-3 py-1.5 text-xs text-gray-400 hover:text-white border border-gray-600 rounded transition-colors">Import YAML</button>
+            <button @click="showAdd = !showAdd"
+                class="px-3 py-1.5 text-xs bg-purple-700 hover:bg-purple-600 text-white rounded transition-colors">+ Add Trait</button>
+        </div>
+    </div>
+
+    <!-- Import Panel -->
+    <div x-show="showImport" x-cloak class="mb-4 bg-gray-900 border border-gray-600 rounded-lg p-3">
+        <textarea x-ref="importYaml" rows="6" placeholder="Paste traits YAML here..."
+            class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-xs font-mono focus:border-purple-500 focus:outline-none resize-y"></textarea>
+        <div class="flex justify-end gap-2 mt-2">
+            <button @click="showImport = false" class="px-3 py-1 text-xs text-gray-400 hover:text-white">Cancel</button>
+            <button @click="importTraits()" class="px-3 py-1 text-xs bg-purple-700 hover:bg-purple-600 text-white rounded">Import</button>
+        </div>
+        <p x-show="importResult" class="text-xs mt-1"
+            :class="importResult?.error ? 'text-red-400' : 'text-green-400'"
+            x-text="importResult?.message"></p>
+    </div>
+
+    <!-- Add Trait Form -->
+    <div x-show="showAdd" x-cloak class="mb-4 bg-gray-900 border border-gray-600 rounded-lg p-3">
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Category</label>
+                <select x-model="newTrait.category"
+                    class="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:border-purple-500 focus:outline-none">
+                    <option value="identity">identity</option>
+                    <option value="tone">tone</option>
+                    <option value="stance">stance</option>
+                    <option value="boundary">boundary</option>
+                    <option value="phrase">phrase</option>
+                    <option value="situational">situational</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Tags <span class="text-gray-600">(comma-separated)</span></label>
+                <input type="text" x-model="newTrait.tags" placeholder="core, style, humor"
+                    class="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:border-purple-500 focus:outline-none">
+            </div>
+        </div>
+        <div class="mt-2">
+            <label class="block text-xs text-gray-400 mb-1">Content</label>
+            <textarea x-model="newTrait.content" rows="2" placeholder="Trait content..."
+                class="w-full px-2 py-1.5 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:border-purple-500 focus:outline-none"></textarea>
+        </div>
+        <div class="flex items-center gap-4 mt-2">
+            <label class="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+                <input type="checkbox" x-model="newTrait.stable"
+                    class="rounded bg-gray-700 border-gray-600 text-purple-500 focus:ring-purple-500 h-3.5 w-3.5">
+                Stable (never decays)
+            </label>
+            <div class="flex items-center gap-1">
+                <label class="text-xs text-gray-400">Weight</label>
+                <input type="number" x-model="newTrait.weight" step="0.1" min="0" max="1"
+                    class="w-16 px-2 py-1 bg-gray-800 border border-gray-600 rounded text-white text-xs focus:border-purple-500 focus:outline-none">
+            </div>
+            <div class="ml-auto flex gap-2">
+                <button @click="showAdd = false" class="px-3 py-1 text-xs text-gray-400 hover:text-white">Cancel</button>
+                <button @click="addTrait()" class="px-3 py-1 text-xs bg-purple-700 hover:bg-purple-600 text-white rounded">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Traits List -->
+    <div class="flex-1 overflow-y-auto space-y-1.5">
+        <template x-for="(traits, cat) in groupedTraits" :key="cat">
+            <div>
+                <div class="flex items-center gap-2 mb-1.5 mt-3 first:mt-0">
+                    <span class="text-xs font-semibold text-purple-400 uppercase tracking-wide" x-text="cat"></span>
+                    <span class="text-xs text-gray-600" x-text="traits.length + ' trait' + (traits.length !== 1 ? 's' : '')"></span>
+                </div>
+                <template x-for="trait in traits" :key="trait.id">
+                    <div class="flex items-start gap-2 bg-gray-900/50 rounded px-3 py-2 group">
+                        <span x-show="trait.stable" class="flex-shrink-0 mt-0.5 h-2 w-2 bg-purple-400 rounded-full" title="Stable"></span>
+                        <span x-show="!trait.stable" class="flex-shrink-0 mt-0.5 h-2 w-2 bg-gray-600 rounded-full" title="Decaying"></span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-gray-200" x-text="trait.content"></p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <template x-for="tag in trait.tags" :key="tag">
+                                    <span class="text-[10px] px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded" x-text="tag"></span>
+                                </template>
+                                <span class="text-[10px] text-gray-600" x-text="'w:' + trait.weight.toFixed(1)"></span>
+                            </div>
+                        </div>
+                        <button @click="deleteTrait(trait.id)"
+                            class="flex-shrink-0 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </template>
+        <div x-show="Object.keys(groupedTraits).length === 0" class="text-center text-gray-500 py-8">
+            <p class="text-sm">No traits configured</p>
+            <p class="text-xs mt-1">Add traits manually or import from YAML.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function personalityAdmin() {
+    return {
+        slug: '',
+        traits: [],
+        showAdd: false,
+        showImport: false,
+        importResult: null,
+        newTrait: { category: 'tone', content: '', tags: '', weight: 1.0, stable: false },
+
+        init() {
+            // Slug injected by the container div's data attribute
+            this.slug = this.$el.closest('[data-admin-slug]')?.dataset.adminSlug || '';
+            if (this.slug) this.loadTraits();
+        },
+
+        get groupedTraits() {
+            const groups = {};
+            const order = ['identity', 'tone', 'stance', 'boundary', 'phrase', 'situational'];
+            for (const t of this.traits) {
+                if (!groups[t.category]) groups[t.category] = [];
+                groups[t.category].push(t);
+            }
+            const sorted = {};
+            for (const cat of order) {
+                if (groups[cat]) sorted[cat] = groups[cat];
+            }
+            for (const [cat, traits] of Object.entries(groups)) {
+                if (!sorted[cat]) sorted[cat] = traits;
+            }
+            return sorted;
+        },
+
+        async loadTraits() {
+            try {
+                const resp = await fetch(`/api/personality/${this.slug}/traits`);
+                const data = await resp.json();
+                this.traits = data.traits || [];
+            } catch (e) {
+                console.error('Failed to load traits:', e);
+                this.traits = [];
+            }
+        },
+
+        async addTrait() {
+            if (!this.newTrait.content.trim()) return;
+            const tags = this.newTrait.tags
+                ? this.newTrait.tags.split(',').map(t => t.trim()).filter(Boolean)
+                : [];
+            try {
+                const resp = await fetch(`/api/personality/${this.slug}/traits`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...this.newTrait, tags }),
+                });
+                if (resp.ok) {
+                    this.newTrait = { category: 'tone', content: '', tags: '', weight: 1.0, stable: false };
+                    this.showAdd = false;
+                    await this.loadTraits();
+                } else {
+                    const err = await resp.json();
+                    alert(err.detail || 'Failed to add trait');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        async deleteTrait(traitId) {
+            if (!confirm('Delete this trait?')) return;
+            try {
+                await fetch(`/api/personality/${this.slug}/traits/${traitId}`, { method: 'DELETE' });
+                await this.loadTraits();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        },
+
+        async importTraits() {
+            const yaml = this.$refs.importYaml?.value;
+            if (!yaml?.trim()) return;
+            try {
+                const resp = await fetch(`/api/personality/${this.slug}/import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ yaml }),
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    this.importResult = { message: `Imported ${data.created} traits (${data.skipped} skipped)` };
+                    await this.loadTraits();
+                } else {
+                    this.importResult = { error: true, message: data.detail || 'Import failed' };
+                }
+            } catch (e) {
+                this.importResult = { error: true, message: e.message };
+            }
+        },
+    };
+}
+</script>
