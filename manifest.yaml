@@ -1,6 +1,7 @@
 name: personality
 display_name: Personality
 description: Structured personality traits with categories, weights, and decay
+type: personality
 category: Core
 icon: sparkles
 color: purple
